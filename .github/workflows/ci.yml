@@ -35,9 +35,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release download --repo tidbyt/pixlet --pattern 'pixlet_*_linux_amd64.tar.gz' --output pixlet.tar.gz
-          tar -xzf pixlet.tar.gz
-          sudo mv pixlet /usr/local/bin/
+          mkdir -p "$RUNNER_TEMP/pixlet"
+          gh release download --repo tidbyt/pixlet \
+            --pattern 'pixlet_*_linux_amd64.tar.gz' \
+            --output "$RUNNER_TEMP/pixlet/pixlet.tar.gz"
+          tar -xzf "$RUNNER_TEMP/pixlet/pixlet.tar.gz" -C "$RUNNER_TEMP/pixlet"
+          sudo mv "$RUNNER_TEMP/pixlet/pixlet" /usr/local/bin/
           pixlet version
       - name: Start mock sync service
         working-directory: sync
