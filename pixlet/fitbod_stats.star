@@ -5,24 +5,23 @@ Fitbod Stats — fetches the local fitbod-sync service and rotates through:
   3. Last lift (exercise / weight × reps / date)
 """
 
-load("render.star", "render")
 load("http.star", "http")
-load("encoding/json.star", "json")
-load("time.star", "time")
+load("render.star", "render")
 load("schema.star", "schema")
+load("time.star", "time")
 
 DEFAULT_URL = "http://localhost:8090/stats.json"
 FRAME_MS = 4000  # per-frame display time
-CACHE_TTL = 60   # http cache, seconds
+CACHE_TTL = 60  # http cache, seconds
 
 WHITE = "#fff"
 DIM = "#888"
-ACCENT = "#ffd23f"   # yellow — headlines
-PR_COLOR = "#5cff5c" # green — PRs
+ACCENT = "#ffd23f"  # yellow — headlines
+PR_COLOR = "#5cff5c"  # green — PRs
 
-FONT_HEAD = "tb-8"               # ~8px chunky
-FONT_LABEL = "CG-pixel-3x5-mono" # 5px tiny
-FONT_BIG = "6x13"                # tall numerals
+FONT_HEAD = "tb-8"  # ~8px chunky
+FONT_LABEL = "CG-pixel-3x5-mono"  # 5px tiny
+FONT_BIG = "6x13"  # tall numerals
 
 def main(config):
     url = config.get("stats_url", DEFAULT_URL)
@@ -38,6 +37,7 @@ def main(config):
         frame_volume(stats),
         frame_last_lift(stats),
     ]
+
     # Drop frames that decided they had nothing to show.
     frames = [f for f in frames if f != None]
     if len(frames) == 0:
