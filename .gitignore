@@ -1,0 +1,14 @@
+.env
+.session
+data/
+docs/reverse-engineering.md
+
+# Go
+sync/sync
+sync/*.test
+*.out
+
+# Editors
+.idea/
+.vscode/
+.DS_Store

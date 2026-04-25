@@ -1,0 +1,42 @@
+# Parse class configuration for Fitbod. Fill in real names/fields after you
+# capture traffic with mitmproxy. The keys on the left (workout, set,
+# exercise) are stable internal names the stats layer expects; the values
+# on the right are whatever Fitbod actually calls them.
+#
+# All `fields` entries map internal name -> Parse field name. Fields not
+# listed are simply ignored when normalizing.
+
+classes:
+  workout:
+    name: Workout                # ← guess; replace after MITM
+    order: "-startTime"
+    limit: 200
+    fields:
+      start_time: startTime
+      end_time: endTime
+      name: name
+      duration_seconds: durationSeconds
+
+  set:
+    name: SingleSet              # ← guess; replace after MITM
+    order: "-createdAt"
+    limit: 5000
+    # Parse pointer fields — list them here so the client adds ?include=...
+    include:
+      - workout
+      - exercise
+    fields:
+      workout: workout           # pointer
+      exercise: exercise         # pointer
+      weight_lbs: weight
+      reps: reps
+      e1rm: e1rm
+      is_warmup: isWarmup
+      is_completed: isCompleted
+
+  exercise:
+    name: Exercise               # ← guess; replace after MITM
+    limit: 1000
+    fields:
+      name: name
+      is_compound: isCompound

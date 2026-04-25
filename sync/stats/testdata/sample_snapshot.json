@@ -1,0 +1,44 @@
+{
+  "FetchedAt": "2026-04-24T12:00:00Z",
+  "Workouts": [
+    {
+      "ID": "w_apr20",
+      "StartTime": "2026-04-20T18:00:00Z",
+      "EndTime": "2026-04-20T19:05:00Z",
+      "Name": "Lower A",
+      "DurationSec": 3900
+    },
+    {
+      "ID": "w_apr22",
+      "StartTime": "2026-04-22T18:00:00Z",
+      "EndTime": "2026-04-22T19:00:00Z",
+      "Name": "Upper A",
+      "DurationSec": 3600
+    },
+    {
+      "ID": "w_apr15",
+      "StartTime": "2026-04-15T18:00:00Z",
+      "EndTime": "2026-04-15T19:00:00Z",
+      "Name": "Lower B",
+      "DurationSec": 3600
+    }
+  ],
+  "Sets": [
+    {"WorkoutID": "w_apr20", "ExerciseID": "sq", "WeightLbs": 245, "Reps": 5, "E1RM": 285, "IsCompleted": true, "CreatedAt": "2026-04-20T18:10:00Z"},
+    {"WorkoutID": "w_apr20", "ExerciseID": "sq", "WeightLbs": 245, "Reps": 5, "E1RM": 285, "IsCompleted": true, "CreatedAt": "2026-04-20T18:15:00Z"},
+    {"WorkoutID": "w_apr20", "ExerciseID": "rdl", "WeightLbs": 275, "Reps": 8, "IsCompleted": true, "CreatedAt": "2026-04-20T18:30:00Z"},
+
+    {"WorkoutID": "w_apr22", "ExerciseID": "bench", "WeightLbs": 185, "Reps": 5, "E1RM": 215, "IsCompleted": true, "CreatedAt": "2026-04-22T18:10:00Z"},
+    {"WorkoutID": "w_apr22", "ExerciseID": "bench", "WeightLbs": 185, "Reps": 5, "E1RM": 215, "IsCompleted": true, "CreatedAt": "2026-04-22T18:15:00Z"},
+    {"WorkoutID": "w_apr22", "ExerciseID": "row", "WeightLbs": 155, "Reps": 8, "IsCompleted": true, "CreatedAt": "2026-04-22T18:30:00Z"},
+
+    {"WorkoutID": "w_apr15", "ExerciseID": "dl", "WeightLbs": 315, "Reps": 3, "E1RM": 346, "IsCompleted": true, "CreatedAt": "2026-04-15T18:10:00Z"}
+  ],
+  "Exercises": [
+    {"ID": "sq", "Name": "Back Squat", "IsCompound": true},
+    {"ID": "rdl", "Name": "Romanian Deadlift", "IsCompound": true},
+    {"ID": "bench", "Name": "Bench Press", "IsCompound": true},
+    {"ID": "row", "Name": "Barbell Row", "IsCompound": true},
+    {"ID": "dl", "Name": "Deadlift", "IsCompound": true}
+  ]
+}

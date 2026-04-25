@@ -1,0 +1,8 @@
+id: fitbod-stats
+name: Fitbod Stats
+summary: Weekly Fitbod stats
+desc: Reads stats.json served by the local fitbod-sync service and rotates through three frames.
+author: luke
+fileName: fitbod_stats.star
+packageName: fitbod_stats
+supports2x: true

@@ -1,0 +1,13 @@
+services:
+  fitbod-sync:
+    build:
+      context: ./sync
+      dockerfile: ../Dockerfile
+    container_name: fitbod-sync
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./data:/app/data
+      - ./classes.yaml:/app/classes.yaml:ro
