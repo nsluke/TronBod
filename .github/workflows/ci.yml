@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: sync/go.sum
+      - name: go vet
+        working-directory: sync
+        run: go vet ./...
+      - name: go test
+        working-directory: sync
+        run: go test -race ./...
+
+  pixlet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: sync/go.sum
+      - name: Install pixlet
+        run: |
+          set -euo pipefail
+          curl -sSL -o pixlet.tar.gz https://github.com/tidbyt/pixlet/releases/latest/download/pixlet_linux_amd64.tar.gz
+          tar -xzf pixlet.tar.gz
+          sudo mv pixlet /usr/local/bin/
+          pixlet version
+      - name: Start mock sync service
+        working-directory: sync
+        run: |
+          DATA_DIR=../data go run . -mock stats/testdata/sample_snapshot.json > ../mock.log 2>&1 &
+          echo $! > ../mock.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8090/healthz >/dev/null; then
+              echo "mock service ready in ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::mock service did not become ready"
+          cat ../mock.log
+          exit 1
+      - name: pixlet check
+        run: pixlet check pixlet/fitbod_stats.star
+      - name: Stop mock sync service
+        if: always()
+        run: |
+          if [ -f mock.pid ]; then
+            kill "$(cat mock.pid)" 2>/dev/null || true
+          fi
