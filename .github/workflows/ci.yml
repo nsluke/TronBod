@@ -31,9 +31,11 @@ jobs:
           go-version: "1.22"
           cache-dependency-path: sync/go.sum
       - name: Install pixlet
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          curl -sSL -o pixlet.tar.gz https://github.com/tidbyt/pixlet/releases/latest/download/pixlet_linux_amd64.tar.gz
+          gh release download --repo tidbyt/pixlet --pattern 'pixlet_*_linux_amd64.tar.gz' --output pixlet.tar.gz
           tar -xzf pixlet.tar.gz
           sudo mv pixlet /usr/local/bin/
           pixlet version
