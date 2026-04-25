@@ -1,42 +1,44 @@
-# Parse class configuration for Fitbod. Fill in real names/fields after you
-# capture traffic with mitmproxy. The keys on the left (workout, set,
-# exercise) are stable internal names the stats layer expects; the values
-# on the right are whatever Fitbod actually calls them.
+# Parse class configuration for Fitbod. Keys on the left (workout/set/exercise)
+# are stable internal names the codebase expects; values on the right are
+# whatever Fitbod actually calls them.
 #
-# All `fields` entries map internal name -> Parse field name. Fields not
-# listed are simply ignored when normalizing.
+# These guesses are pre-filled from public sources (see docs/schema-notes.md).
+# Class names are high-confidence (Workout / SingleSet / Exercise from
+# github.com/Fitbod/my_workout). Field names are medium-confidence guesses
+# derived from Fitbod's CSV export columns (per github.com/rrebase/fitdata).
+# Confirm and adjust during MITM capture.
 
 classes:
   workout:
-    name: Workout                # ← guess; replace after MITM
-    order: "-startTime"
+    name: Workout                # confirmed via Fitbod/my_workout
+    order: "-date"               # field name TBD; "-createdAt" is a safe fallback
     limit: 200
     fields:
-      start_time: startTime
-      end_time: endTime
-      name: name
-      duration_seconds: durationSeconds
+      start_time: date           # CSV exports one "date" per workout
+      end_time: ""               # likely doesn't exist; use start_time + duration
+      name: name                 # Fitbod assigns names like "Lower A"
+      duration_seconds: duration # CSV: "duration" — unit (s vs min) TBD via MITM
 
   set:
-    name: SingleSet              # ← guess; replace after MITM
-    order: "-createdAt"
+    name: SingleSet              # confirmed via Fitbod/my_workout
+    order: "-date"
     limit: 5000
-    # Parse pointer fields — list them here so the client adds ?include=...
-    include:
+    include:                     # Parse pointer expansion
       - workout
       - exercise
     fields:
-      workout: workout           # pointer
-      exercise: exercise         # pointer
-      weight_lbs: weight
+      workout: workout           # Pointer<Workout>
+      exercise: exercise         # Pointer<Exercise>
+      weight_lbs: weight         # ⚠️ CSV weight is in KG — see docs/schema-notes.md
       reps: reps
-      e1rm: e1rm
-      is_warmup: isWarmup
-      is_completed: isCompleted
+      e1rm: ""                   # likely not stored; Epley fallback in headline.go
+      is_warmup: isWarmup        # CSV: "isWarmup"
+      is_completed: ""           # not in CSV; normalize treats absence as true
 
   exercise:
-    name: Exercise               # ← guess; replace after MITM
+    name: Exercise               # confirmed via Fitbod/my_workout
     limit: 1000
     fields:
       name: name
-      is_compound: isCompound
+      is_compound: ""            # not in Fitbod's data — curate a list locally
+                                 # or drop the compound preference in headline.go
