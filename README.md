@@ -23,6 +23,22 @@ HTTP :8090 /stats.json
 Tronbyt server → Pixlet app
 ```
 
+## Quick start (mock mode)
+
+Test the LED display path before doing any MITM capture. Mock mode
+bypasses Parse entirely and serves stats derived from a fixture
+snapshot.
+
+```bash
+make mock                  # serves on http://localhost:8090
+curl localhost:8090/stats.json
+make pixlet-serve          # render preview at http://localhost:8080
+```
+
+The fixture lives at `sync/stats/testdata/sample_snapshot.json` —
+edit it to play with different demo numbers. Mock mode requires no
+`.env` and no `classes.yaml`.
+
 ## Setup
 
 1. Capture Parse credentials.
