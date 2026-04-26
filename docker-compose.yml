@@ -1,8 +1,8 @@
 services:
   fitbod-sync:
     build:
-      context: ./sync
-      dockerfile: ../Dockerfile
+      context: .
+      dockerfile: Dockerfile
     container_name: fitbod-sync
     restart: unless-stopped
     env_file: .env

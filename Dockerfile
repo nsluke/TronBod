@@ -1,9 +1,9 @@
-FROM golang:1.26-alpine AS build
+FROM golang:1.22-alpine AS build
 WORKDIR /src
 COPY sync/go.mod sync/go.sum* ./
 RUN go mod download
 COPY sync/ ./
-RUN CGO_ENABLED=0 go build -o /out/sync .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/sync .
 
 FROM gcr.io/distroless/static-debian12
 WORKDIR /app

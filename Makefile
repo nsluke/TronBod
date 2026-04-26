@@ -1,7 +1,13 @@
-.PHONY: build run capture mock test fmt vet pixlet-serve
+.PHONY: build build-arm64 run capture mock test fmt vet pixlet-serve mitm
 
 build:
 	cd sync && go build -o ../bin/sync .
+
+# Cross-compile a static linux/arm64 binary for the Raspberry Pi.
+# Output: bin/sync-arm64 — scp to the Pi and run directly (no Docker needed).
+build-arm64:
+	cd sync && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+	  go build -trimpath -ldflags="-s -w" -o ../bin/sync-arm64 .
 
 run:
 	cd sync && DATA_DIR=../data CLASSES_FILE=../classes.yaml go run .
@@ -26,3 +32,8 @@ vet:
 
 pixlet-serve:
 	pixlet serve pixlet/fitbod_stats.star
+
+# Run mitmproxy with the Fitbod schema-probe addon. Install the mitmproxy CA
+# on your phone first, then route the phone's traffic through this machine.
+mitm:
+	mitmdump -s tools/mitm-fitbod.py

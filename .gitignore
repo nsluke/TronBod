@@ -4,6 +4,7 @@ data/
 docs/reverse-engineering.md
 
 # Go
+bin/
 sync/sync
 sync/*.test
 *.out
