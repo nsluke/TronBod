@@ -1,7 +1,9 @@
 .env
 .session
+classes.yaml
 data/
 docs/reverse-engineering.md
+tools/mitm-prep/
 
 # Go
 bin/

@@ -39,7 +39,9 @@ func (CompoundTopSetByE1RM) Pick(sets []fitbod.Set, exByID map[string]fitbod.Exe
 	if pick == nil {
 		pick = bestAny
 	}
-	if pick == nil {
+	if pick == nil || (pick.WeightLbs == 0 && pick.Reps == 0) {
+		// Nothing scorable — e.g. a cardio/stretch session with only
+		// duration-based entries. Skip the headline rather than show "0×0".
 		return nil
 	}
 	return &HeadlineLift{
@@ -64,12 +66,17 @@ func better(a, b *fitbod.Set) bool {
 }
 
 // score returns the set's e1RM if recorded, otherwise an Epley estimate.
-// Epley: 1RM ≈ w * (1 + reps/30).
+// Epley: 1RM ≈ w * (1 + reps/30). Bodyweight sets (weight=0) are scored by
+// reps × 0.1 so the highest-rep bodyweight set wins on a bodyweight-only
+// day, but any weighted set still beats any bodyweight set.
 func score(s *fitbod.Set) float64 {
 	if s.E1RM > 0 {
 		return s.E1RM
 	}
-	return s.WeightLbs * (1 + float64(s.Reps)/30.0)
+	if s.WeightLbs > 0 {
+		return s.WeightLbs * (1 + float64(s.Reps)/30.0)
+	}
+	return float64(s.Reps) * 0.1
 }
 
 func exerciseName(id string, m map[string]fitbod.Exercise) string {

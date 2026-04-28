@@ -10,29 +10,27 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/caarlos0/env/v11"
 
 	"github.com/nsluke/TronBod/sync/fitbod"
-	"github.com/nsluke/TronBod/sync/parse"
+	"github.com/nsluke/TronBod/sync/fitbodapi"
 	"github.com/nsluke/TronBod/sync/server"
 	"github.com/nsluke/TronBod/sync/stats"
 )
 
 type appConfig struct {
-	AppID       string        `env:"FITBOD_APP_ID"`
-	ClientKey   string        `env:"FITBOD_CLIENT_KEY"`
-	BaseURL     string        `env:"FITBOD_BASE_URL"`
-	Email       string        `env:"FITBOD_EMAIL"`
-	Password    string        `env:"FITBOD_PASSWORD"`
-	PollEvery   time.Duration `env:"POLL_INTERVAL" envDefault:"15m"`
-	HTTPPort    int           `env:"HTTP_PORT" envDefault:"8090"`
-	UAContact   string        `env:"USER_AGENT_CONTACT" envDefault:""`
-	ClassesFile string        `env:"CLASSES_FILE" envDefault:"classes.yaml"`
-	DataDir     string        `env:"DATA_DIR" envDefault:"data"`
+	RefreshToken string        `env:"FITBOD_REFRESH_TOKEN"`
+	PollEvery    time.Duration `env:"POLL_INTERVAL" envDefault:"15m"`
+	HTTPPort     int           `env:"HTTP_PORT" envDefault:"8090"`
+	// UserAgent overrides the HTTP User-Agent. The default ("okhttp/5.3.2")
+	// mirrors what the real Fitbod Android client sends; honest custom
+	// strings get blocked at Cloudflare on the auth endpoint.
+	UserAgent   string `env:"USER_AGENT" envDefault:"okhttp/5.3.2"`
+	ClassesFile string `env:"CLASSES_FILE" envDefault:"classes.yaml"`
+	DataDir     string `env:"DATA_DIR" envDefault:"data"`
 }
 
 const (
@@ -46,7 +44,7 @@ type snapshotFetcher func(context.Context) (*fitbod.Snapshot, error)
 
 func main() {
 	captureMode := flag.Bool("capture", false, "run a single sync and exit (no HTTP server)")
-	mockPath := flag.String("mock", "", "path to a fixture Snapshot JSON; bypass Parse entirely")
+	mockPath := flag.String("mock", "", "path to a fixture Snapshot JSON; bypass Fitbod entirely")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -107,33 +105,11 @@ func loadConfig(mock bool) (*appConfig, error) {
 		return nil, fmt.Errorf("POLL_INTERVAL must be >= %s (got %s)", min, c.PollEvery)
 	}
 	if !mock {
-		if err := c.validateParse(); err != nil {
-			return nil, err
+		if c.RefreshToken == "" {
+			return nil, errors.New("FITBOD_REFRESH_TOKEN is required (or use -mock <fixture>)")
 		}
 	}
 	return &c, nil
-}
-
-func (c *appConfig) validateParse() error {
-	pairs := []struct {
-		name, val string
-	}{
-		{"FITBOD_APP_ID", c.AppID},
-		{"FITBOD_CLIENT_KEY", c.ClientKey},
-		{"FITBOD_BASE_URL", c.BaseURL},
-		{"FITBOD_EMAIL", c.Email},
-		{"FITBOD_PASSWORD", c.Password},
-	}
-	var missing []string
-	for _, p := range pairs {
-		if p.val == "" {
-			missing = append(missing, p.name)
-		}
-	}
-	if len(missing) > 0 {
-		return fmt.Errorf("missing required env vars: %s (or use -mock <fixture>)", strings.Join(missing, ", "))
-	}
-	return nil
 }
 
 func buildFetcher(ctx context.Context, cfg *appConfig, mockPath string, logger *slog.Logger) (snapshotFetcher, error) {
@@ -147,30 +123,25 @@ func buildFetcher(ctx context.Context, cfg *appConfig, mockPath string, logger *
 		return nil, err
 	}
 
-	pc, err := parse.New(parse.Config{
-		BaseURL:   cfg.BaseURL,
-		AppID:     cfg.AppID,
-		ClientKey: cfg.ClientKey,
-		UserAgent: userAgent(cfg.UAContact),
-		Email:     cfg.Email,
-		Password:  cfg.Password,
-		Session:   parse.FileSession{Path: filepath.Join(cfg.DataDir, ".session")},
-		Logger:    logger,
+	backends := map[string]string{}
+	for name, b := range classes.Backends {
+		if b.BaseURL != "" {
+			backends[name] = b.BaseURL
+		}
+	}
+
+	client, err := fitbodapi.New(fitbodapi.Config{
+		Backends:     backends,
+		RefreshToken: cfg.RefreshToken,
+		UserAgent:    cfg.UserAgent,
+		Logger:       logger,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if !pc.HasSession() {
-		loginCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		if err := pc.Login(loginCtx); err != nil {
-			return nil, fmt.Errorf("initial login: %w", err)
-		}
-	}
-
 	syncer := &fitbod.Syncer{
-		Client: pc,
+		Client: client,
 		Config: classes,
 		RawDir: filepath.Join(cfg.DataDir, "raw"),
 		Logger: logger,
@@ -190,14 +161,6 @@ func mockFetcher(path string) snapshotFetcher {
 		}
 		return &snap, nil
 	}
-}
-
-func userAgent(contact string) string {
-	base := "TronBod-Sync/0.1 (+personal Fitbod→Tronbyt bridge)"
-	if contact != "" {
-		base += " contact=" + contact
-	}
-	return base
 }
 
 func runLoop(ctx context.Context, fetch snapshotFetcher, srv *server.Server, statsPath string, every time.Duration, logger *slog.Logger) {

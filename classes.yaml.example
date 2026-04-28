@@ -1,44 +1,121 @@
-# Parse class configuration for Fitbod. Keys on the left (workout/set/exercise)
-# are stable internal names the codebase expects; values on the right are
-# whatever Fitbod actually calls them.
+# Resource configuration for Fitbod's two-backend REST API.
 #
-# These guesses are pre-filled from public sources (see docs/schema-notes.md).
-# Class names are high-confidence (Workout / SingleSet / Exercise from
-# github.com/Fitbod/my_workout). Field names are medium-confidence guesses
-# derived from Fitbod's CSV export columns (per github.com/rrebase/fitdata).
-# Confirm and adjust during MITM capture.
+# Captured 2026-04-28; see docs/schema-notes.md for source samples.
+#
+# This file replaces the Parse-class config that this project shipped with
+# initially — Fitbod migrated off Parse before we cared. The Go config
+# loader in sync/fitbod/config.go is still Parse-shaped (Name/Order/Limit/
+# Where/Include/Fields) and will need to be reworked to consume what's below
+# (in particular: nested resources, base_url per resource, and JSON:API
+# attribute paths like "attributes.name").
+#
+# Internal names are on the LEFT (stable; the rest of the codebase uses
+# them). Wire names are on the RIGHT.
+
+backends:
+  catalog:
+    base_url: https://nautilus.fitbod.me
+    style: jsonapi          # application/vnd.api+json; data: [{id, type, attributes, relationships}]
+    page_size: 1000
+  user:
+    base_url: https://metros.fitbod.me
+    style: rest             # application/json; bare resource shape
+
+auth:
+  refresh_url: https://gympulse.fitbod.me/access_token
+  scheme: bearer            # Authorization: Bearer <access_token>
+                            # POST refresh_url with {"refresh_token": "<jwt>"} → {"access_token": "<jwt>"}
 
 classes:
   workout:
-    name: Workout                # confirmed via Fitbod/my_workout
-    order: "-date"               # field name TBD; "-createdAt" is a safe fallback
-    limit: 200
-    fields:
-      start_time: date           # CSV exports one "date" per workout
-      end_time: ""               # likely doesn't exist; use start_time + duration
-      name: name                 # Fitbod assigns names like "Lower A"
-      duration_seconds: duration # CSV: "duration" — unit (s vs min) TBD via MITM
+    backend: catalog                              # nautilus, JSON:API
+    list_path: /api/v3/workout_data               # full workout list with nested sets+breakdowns
+    sync: incremental
+    incremental_filter: filter[updated_at][gt]
+    fields:                                       # paths are relative to data[i] (a JSON:API object)
+      id:                attributes.external_id   # int; matches metros' workout_id
+      start_time:        attributes.date_performed
+      duration_seconds:  attributes.workout_duration
+      name:              attributes.workout_name
+      calories:          attributes.calories_burned
+      source_id:         attributes.source_id
+      finalized:         attributes.workout_finalized
 
   set:
-    name: SingleSet              # confirmed via Fitbod/my_workout
-    order: "-date"
-    limit: 5000
-    include:                     # Parse pointer expansion
-      - workout
-      - exercise
-    fields:
-      workout: workout           # Pointer<Workout>
-      exercise: exercise         # Pointer<Exercise>
-      weight_lbs: weight         # ⚠️ CSV weight is in KG — see docs/schema-notes.md
-      reps: reps
-      e1rm: ""                   # likely not stored; Epley fallback in headline.go
-      is_warmup: isWarmup        # CSV: "isWarmup"
-      is_completed: ""           # not in CSV; normalize treats absence as true
+    # An "exercise_set" inside attributes.exercise_sets[]. Maps to one
+    # exercise group within a workout (e.g. "barbell squat 3×5").
+    nested_in: workout
+    nested_path: attributes.exercise_sets
+    fields:                                       # paths relative to one exercise_set
+      id:                  id                     # uuid
+      exercise_id:         exercise_external_resource_id   # ← join key to catalog exercise.id
+      e1rm_kg:             theoretical_max         # server-computed; can be 0 for warmup-only sets
+      perceived_exertion:  perceived_exertion_rating
+      is_max_effort:       is_max_effort
+      list_position:       list_position
+      notes:               notes
+
+  breakdown:
+    # One per actual rep performed. Lives inside set_breakdown.individual_sets[].
+    # ⚠️ Field names mix snake_case AND camelCase on the wire — match exactly.
+    nested_in: set
+    nested_path: set_breakdown.individual_sets
+    fields:                                       # paths relative to one individual_set
+      id:                  _id                    # NOTE the underscore prefix
+      weight_kg:           weight                 # ⚠️ kg, not lbs
+      reps:                reps
+      duration_seconds:    duration
+      distance_m:          distance               # cardio: meters
+      incline_pct:         incline
+      resistance:          resistance
+      is_warmup:           isWarmup               # ⚠️ camelCase
+      is_amrap:            is_amrap
+      rest_time_seconds:   restTime               # ⚠️ camelCase
+      logged_at:           logged_at              # per-rep timestamp (ISO 8601)
 
   exercise:
-    name: Exercise               # confirmed via Fitbod/my_workout
-    limit: 1000
+    backend: catalog
+    list_path: /api/v3/exercises                 # JSON:API
+    sync: incremental                            # cursor on attributes.updated_at
+    incremental_filter: filter[updated_at][gt]   # query-param name for the cursor
     fields:
-      name: name
-      is_compound: ""            # not in Fitbod's data — curate a list locally
-                                 # or drop the compound preference in headline.go
+      id:                  id                    # JSON:API string id; matches set.exercise_external_id
+      name:                attributes.name
+      slug:                attributes.slug
+      created_at:          attributes.created_at
+      updated_at:          attributes.updated_at
+      is_cardio:           attributes.is_cardio
+      is_bodyweight:       attributes.is_bodyweight
+      is_unilateral:       attributes.is_unilateral
+      is_timed:            attributes.is_timed
+      is_distance:         attributes.is_distance
+      is_assisted:         attributes.is_assisted
+      mechanics:           attributes.mechanics            # []string; usually empty in our capture
+      movement_pattern:    attributes.movement_pattern     # []string; usually empty
+      warm_start_1rm_kg:   attributes.warm_start_1rm_kgs   # float | null
+
+  # Optional: hit this single endpoint for the Tronbyt headline summary
+  # without paging through workouts.
+  user_summary:
+    backend: user
+    list_path: /v1/user
+    fields:
+      streak_length:       streak_length
+      goal:                goal
+      timezone:            timezone
+      workouts_this_week:  workouts_this_week
+      total_workouts:      total_workouts
+      total_streak_workouts: total_streak_workouts
+      milestones:          milestones            # []{name, level, next_level, current_val, target, asset_url, ...}
+      recent_workouts:     workout_details       # []{id, duration, date_performed, source_id}
+
+  # Optional: Strength Index, server-computed.
+  strength_summary:
+    backend: user
+    list_path: /v2/muscle_strength/summary
+    fields:
+      overall_strength:      overall_strength
+      prev_overall_strength: prev_overall_strength
+      calculated_at:         calculated_at
+      muscle_group_data:     muscle_group_data
+      summary_metrics:       summary_metrics
