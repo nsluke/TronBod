@@ -48,7 +48,8 @@ classes:
     nested_path: attributes.exercise_sets
     fields:                                       # paths relative to one exercise_set
       id:                  id                     # uuid
-      exercise_id:         exercise_external_resource_id   # ← join key to catalog exercise.id
+      exercise_id:         exercise_id            # ← join key to catalog exercise.id (NOT exercise_external_resource_id, which is for /<id>.mp4 media URLs)
+      external_resource_id: exercise_external_resource_id  # for media URL lookup
       e1rm_kg:             theoretical_max         # server-computed; can be 0 for warmup-only sets
       perceived_exertion:  perceived_exertion_rating
       is_max_effort:       is_max_effort

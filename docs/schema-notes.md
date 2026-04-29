@@ -124,8 +124,8 @@ Each workout's `attributes`:
 {
   "id":                            "5f55cb19-...",   // uuid
   "workout_id":                    584116534,
-  "exercise_id":                   480,                // legacy id (parse-era)
-  "exercise_external_resource_id": 4,                  // ⚠️ JOIN KEY to catalog exercise.id
+  "exercise_id":                   480,                // ⚠️ JOIN KEY to catalog exercise.id (snake_case int)
+  "exercise_external_resource_id": 4,                  // for media URLs (https://exercise-mp4s.fitbod.me/<id>.mp4); maps to exercise.attributes.external_resource_id
   "gym_equipment_id":              null,
   "is_max_effort":                 false,
   "theoretical_max":               0.0,                // server-computed e1RM (kg); 0 for warmup-only sets
@@ -247,7 +247,7 @@ Server-computed; not derivable from raw set history.
 ## Quirks worth remembering
 
 - **Field-name casing is inconsistent** within a single payload: `isWarmup`/`restTime` are camelCase but `is_amrap`/`rest_time` are snake_case in different objects. Match exactly.
-- **`exercise_external_resource_id`** on a set is the join key to the catalog `exercise.id` (which is itself a string in JSON:API). The set's plain `exercise_id` is the legacy parse-era id.
+- **The set's plain `exercise_id`** (snake_case, integer) is the catalog join key — `set.exercise_id` → `exercise.id`. The misleadingly-named `exercise_external_resource_id` is for media URLs (`/<id>.mp4`) and joins to `exercise.attributes.external_resource_id`, which is **not** the catalog primary key. Joining on the wrong field returns wrong exercise names with no error.
 - **`theoretical_max`** on an exercise_set can legitimately be 0 (warmup-only sets). Don't treat 0 as missing.
 - **kg, not lbs** everywhere on the wire. `warm_start_1rm_kgs` makes the unit explicit. Convert at the normalize boundary.
 - **`/v1/workouts?id=ID,...`** on metros returns lean summaries (no sets) — useful for headline counters but not for set-level data. Use `/api/v3/workout_data` for the real list.
