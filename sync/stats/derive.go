@@ -97,34 +97,49 @@ func streakWeeks(workouts []fitbod.Workout, now time.Time) int {
 	return streak
 }
 
+// lastWorkout returns the most recent LIFTING session — the latest workout
+// whose headline-selector returns a non-nil lift. Cardio/stretch-only
+// sessions (where the picker returns nil because everything is 0×0) are
+// skipped, so the display keeps showing your last actual lift even if the
+// most recent workout was a treadmill day.
 func lastWorkout(snap *fitbod.Snapshot, byWorkout map[string][]fitbod.Set, exByID map[string]fitbod.Exercise, sel HeadlineSelector) *LastWorkout {
-	var latest *fitbod.Workout
-	var latestTS time.Time
+	type tw struct {
+		w  *fitbod.Workout
+		ts time.Time
+	}
+	candidates := make([]tw, 0, len(snap.Workouts))
 	for i := range snap.Workouts {
 		w := &snap.Workouts[i]
 		ts := workoutTime(*w)
 		if ts.IsZero() {
 			continue
 		}
-		if latest == nil || ts.After(latestTS) {
-			latest = w
-			latestTS = ts
+		candidates = append(candidates, tw{w, ts})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].ts.After(candidates[j].ts)
+	})
+
+	for _, c := range candidates {
+		lift := sel.Pick(byWorkout[c.w.ID], exByID)
+		if lift == nil {
+			continue
+		}
+		return &LastWorkout{
+			Date:         c.ts,
+			DurationMin:  int(c.w.Duration().Minutes()),
+			HeadlineLift: lift,
 		}
 	}
-	if latest == nil {
-		return nil
-	}
-	return &LastWorkout{
-		Date:         latestTS,
-		DurationMin:  int(latest.Duration().Minutes()),
-		HeadlineLift: sel.Pick(byWorkout[latest.ID], exByID),
-	}
+	return nil
 }
 
 // prsThisMonth: for each (exercise, reps) bucket, find the heaviest weight
 // across all known sets. A PR-set is one that ties or beats that best weight
 // AND happened in the trailing 30 days. Dedupe by exercise (keep heaviest).
-// Sorted by date desc.
+// Sorted by date desc. Bodyweight sets (weight=0) are excluded — every one
+// of them would otherwise tie the bodyweight "best" of 0 and surface as a
+// PR, which is noise.
 func prsThisMonth(snap *fitbod.Snapshot, exByID map[string]fitbod.Exercise, now time.Time) []PR {
 	type key struct {
 		ex   string
@@ -132,7 +147,7 @@ func prsThisMonth(snap *fitbod.Snapshot, exByID map[string]fitbod.Exercise, now 
 	}
 	bestWeight := map[key]float64{}
 	for _, s := range snap.Sets {
-		if s.IsWarmup || !s.IsCompleted || s.Reps <= 0 {
+		if s.IsWarmup || !s.IsCompleted || s.Reps <= 0 || s.WeightLbs == 0 {
 			continue
 		}
 		k := key{s.ExerciseID, s.Reps}
@@ -144,7 +159,7 @@ func prsThisMonth(snap *fitbod.Snapshot, exByID map[string]fitbod.Exercise, now 
 	cutoff := now.AddDate(0, 0, -30)
 	bestPerExercise := map[string]PR{} // exercise_id → heaviest PR in window
 	for _, s := range snap.Sets {
-		if s.IsWarmup || !s.IsCompleted || s.Reps <= 0 {
+		if s.IsWarmup || !s.IsCompleted || s.Reps <= 0 || s.WeightLbs == 0 {
 			continue
 		}
 		ts := setTime(s)
