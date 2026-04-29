@@ -6,8 +6,12 @@ services:
     container_name: fitbod-sync
     restart: unless-stopped
     env_file: .env
-    ports:
-      - "8090:8090"
+    # Host networking — Cloudflare's bot WAF on *.fitbod.me flags Docker's
+    # bridge-NAT TCP fingerprint and 403s our otherwise-okhttp-mimicking
+    # tls-client. With host mode the container uses the host kernel's TCP
+    # stack directly and passes. Side effect: HTTP_PORT (8090 by default)
+    # binds on the host directly; no separate `ports:` mapping needed.
+    network_mode: host
     volumes:
       - ./data:/app/data
       - ./classes.yaml:/app/classes.yaml:ro
