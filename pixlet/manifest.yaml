@@ -1,7 +1,7 @@
 id: fitbod-stats
 name: Fitbod Stats
 summary: Weekly Fitbod stats
-desc: Reads stats.json served by the local fitbod-sync service and rotates through three frames.
+desc: Reads stats.json from the local fitbod-sync service and renders all headline numbers on a single static screen.
 author: luke
 fileName: fitbod_stats.star
 packageName: fitbod_stats
